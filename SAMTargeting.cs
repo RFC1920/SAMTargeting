@@ -29,7 +29,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("SAM Targeting", "RFC1920", "1.0.1")]
+    [Info("SAM Targeting", "RFC1920", "1.0.2")]
     [Description("Make SAMSites target other things")]
     internal class SAMTargeting : RustPlugin
     {
@@ -38,7 +38,7 @@ namespace Oxide.Plugins
         private bool enabled = false;
 
         [PluginReference]
-        private readonly Plugin Friends, Clans, RustIO, Vanish;
+        private readonly Plugin Vanish;
 
         #region Message
         private string Lang(string key, string id = null, params object[] args) => string.Format(lang.GetMessage(key, this, id), args);
@@ -55,52 +55,7 @@ namespace Oxide.Plugins
         }
         #endregion
 
-        private bool IsFriend(ulong playerid, ulong ownerid)
-        {
-            if (!configData.HonorRelationships) return false;
-
-            if (configData.useFriends && Friends != null)
-            {
-                var fr = Friends?.CallHook("AreFriends", playerid, ownerid);
-                if (fr != null && (bool)fr)
-                {
-                    return true;
-                }
-            }
-            if (configData.useClans && Clans != null)
-            {
-                string playerclan = (string)Clans?.CallHook("GetClanOf", playerid);
-                string ownerclan = (string)Clans?.CallHook("GetClanOf", ownerid);
-                if (playerclan != null && ownerclan != null)
-                {
-                    if (playerclan == ownerclan)
-                    {
-                        return true;
-                    }
-                }
-            }
-            if (configData.useTeams)
-            {
-                BasePlayer player = BasePlayer.FindByID(playerid);
-                if (player != null)
-                {
-                    if (player.currentTeam != 0)
-                    {
-                        RelationshipManager.PlayerTeam playerTeam = RelationshipManager.Instance.FindTeam(player.currentTeam);
-                        if (playerTeam != null)
-                        {
-                            if (playerTeam.members.Contains(ownerid))
-                            {
-                                return true;
-                            }
-                        }
-                    }
-                }
-            }
-            return false;
-        }
-
-        void OnServerInitialized()
+        private void OnServerInitialized()
         {
             Instance = this;
             LoadConfigVariables();
@@ -300,6 +255,9 @@ namespace Oxide.Plugins
                 TargetPlayers = true,
                 TargetNPCs = true,
                 TargetAnimals = true,
+                NPCTargetPlayers = false,
+                NPCTargetNPCs = false,
+                NPCTargetAnimals = false,
                 exclusions = new List<string>() { "chicken" },
                 range = 150f,
                 Version = Version
@@ -333,18 +291,6 @@ namespace Oxide.Plugins
 
             [JsonProperty(PropertyName = "Animals to exclude")]
             public List<string> exclusions;
-
-            [JsonProperty(PropertyName = "Honor Friends/Clans/Teams for commands")]
-            public bool HonorRelationships = false;
-
-            [JsonProperty(PropertyName = "Use Friends plugins for commands")]
-            public bool useFriends = false;
-
-            [JsonProperty(PropertyName = "Use Clans plugins for commands")]
-            public bool useClans = false;
-
-            [JsonProperty(PropertyName = "Use Rust teams for commands")]
-            public bool useTeams = false;
 
             [JsonProperty(PropertyName = "SamSite Range")]
             public float range;
