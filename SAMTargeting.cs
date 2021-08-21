@@ -29,7 +29,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("SAM Targeting", "RFC1920", "1.0.2")]
+    [Info("SAM Targeting", "RFC1920", "1.0.3")]
     [Description("Make SAMSites target other things")]
     internal class SAMTargeting : RustPlugin
     {
@@ -60,8 +60,8 @@ namespace Oxide.Plugins
             Instance = this;
             LoadConfigVariables();
             enabled = true;
-            var samsites = UnityEngine.Object.FindObjectsOfType<SamSite>();
-            foreach(var t in samsites)
+            SamSite[] samsites = UnityEngine.Object.FindObjectsOfType<SamSite>();
+            foreach(SamSite t in samsites)
             {
                 t.gameObject.AddComponent<SamTargeting>();
             }
@@ -69,12 +69,12 @@ namespace Oxide.Plugins
 
         void Unload()
         {
-            var samsites = UnityEngine.Object.FindObjectsOfType<SamSite>();
-            foreach(var t in samsites)
+            SamSite[] samsites = UnityEngine.Object.FindObjectsOfType<SamSite>();
+            foreach(SamSite t in samsites)
             {
                 if (t != null)
                 {
-                    var at = t.gameObject.GetComponent<SamTargeting>();
+                    SamTargeting at = t.gameObject.GetComponent<SamTargeting>();
                     if (at != null) UnityEngine.Object.Destroy(at);
                 }
             }
@@ -160,7 +160,7 @@ namespace Oxide.Plugins
         {
             if (!enabled) return;
             if (samsite.OwnerID == 0) return;
-            var player = BasePlayer.Find(samsite.OwnerID.ToString());
+            BasePlayer player = BasePlayer.Find(samsite.OwnerID.ToString());
 
             samsite.gameObject.AddComponent<SamTargeting>();
             Message(player.IPlayer, "enabled");
@@ -173,7 +173,10 @@ namespace Oxide.Plugins
             private void Awake()
             {
                 samsite = GetComponent<SamSite>();
-                if (samsite != null) InvokeRepeating("FindTargets", 5f, 1.0f);
+                if (samsite != null)
+                {
+                    InvokeRepeating("FindTargets", 5f, 3f);
+                }
             }
 
             internal void FindTargets()
@@ -250,7 +253,7 @@ namespace Oxide.Plugins
         protected override void LoadDefaultConfig()
         {
             Puts("Creating new config file.");
-            var config = new ConfigData
+            ConfigData config = new ConfigData
             {
                 TargetPlayers = true,
                 TargetNPCs = true,
