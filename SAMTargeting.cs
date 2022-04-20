@@ -1,4 +1,4 @@
-﻿#region License (GPL v3)
+#region License (GPL v3)
 /*
     SAM Targeting - Make SamSites target players, NPCs, and animals
     Copyright (c) 2021 RFC1920 <desolationoutpostpve@gmail.com>
@@ -29,13 +29,13 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("SAM Targeting", "RFC1920", "1.0.3")]
+    [Info("SAM Targeting", "RFC1920", "1.0.4")]
     [Description("Make SAMSites target other things")]
     internal class SAMTargeting : RustPlugin
     {
         private ConfigData configData;
         public static SAMTargeting Instance;
-        private bool enabled = false;
+        private bool enabled;
 
         [PluginReference]
         private readonly Plugin Vanish;
@@ -50,7 +50,6 @@ namespace Oxide.Plugins
             {
                 ["enabled"] = "Animal targeting enabled for this autosamsite",
                 ["disabled"] = "Animal targeting disabled for this autosamsite"
-
             }, this);
         }
         #endregion
@@ -60,17 +59,15 @@ namespace Oxide.Plugins
             Instance = this;
             LoadConfigVariables();
             enabled = true;
-            SamSite[] samsites = UnityEngine.Object.FindObjectsOfType<SamSite>();
-            foreach(SamSite t in samsites)
+            foreach(SamSite t in UnityEngine.Object.FindObjectsOfType<SamSite>())
             {
                 t.gameObject.AddComponent<SamTargeting>();
             }
         }
 
-        void Unload()
+        private void Unload()
         {
-            SamSite[] samsites = UnityEngine.Object.FindObjectsOfType<SamSite>();
-            foreach(SamSite t in samsites)
+            foreach(SamSite t in UnityEngine.Object.FindObjectsOfType<SamSite>())
             {
                 if (t != null)
                 {
@@ -87,29 +84,21 @@ namespace Oxide.Plugins
                 case "player":
                     if (npc)
                     {
-                        if (configData.NPCTargetPlayers) return true;
-                        return false;
+                        return configData.NPCTargetPlayers;
                     }
-                    if (configData.TargetPlayers) return true;
-                    return false;
+                    return configData.TargetPlayers;
                 case "npc":
                     if (npc)
                     {
-                        if (configData.NPCTargetNPCs) return true;
-                        return false;
+                        return configData.NPCTargetNPCs;
                     }
-                    if (configData.TargetNPCs) return true;
-                    return false;
+                    return configData.TargetNPCs;
                 case "animal":
                     if (npc)
                     {
-                        if (configData.NPCTargetAnimals) return true;
-                        return false;
+                        return configData.NPCTargetAnimals;
                     }
-                    if (configData.TargetAnimals) return true;
-                    return false;
-                default:
-                    break;
+                    return configData.TargetAnimals;
             }
             return null;
         }
@@ -123,40 +112,32 @@ namespace Oxide.Plugins
                     if (npc)
                     {
                         configData.NPCTargetPlayers = enabled;
-                        if (configData.NPCTargetPlayers) return true;
-                        return false;
+                        return configData.NPCTargetPlayers;
                     }
                     configData.TargetPlayers = enabled;
-                    if (configData.TargetPlayers) return true;
-                    return false;
+                    return configData.TargetPlayers;
                 case "npc":
                     if (npc)
                     {
                         configData.NPCTargetNPCs = enabled;
-                        if (configData.NPCTargetNPCs) return true;
-                        return false;
+                        return configData.NPCTargetNPCs;
                     }
                     configData.TargetNPCs = enabled;
-                    if (configData.TargetNPCs) return true;
-                    return false;
+                    return configData.TargetNPCs;
                 case "animal":
                     if (npc)
                     {
                         configData.NPCTargetAnimals = enabled;
-                        if (configData.NPCTargetAnimals) return true;
-                        return false;
+                        return configData.NPCTargetAnimals;
                     }
                     configData.TargetAnimals = enabled;
-                    if (configData.TargetAnimals) return true;
-                    return false;
-                default:
-                    break;
+                    return configData.TargetAnimals;
             }
             SaveConfig();
             return null;
         }
 
-        void OnEntitySpawned(SamSite samsite)
+        private void OnEntitySpawned(SamSite samsite)
         {
             if (!enabled) return;
             if (samsite.OwnerID == 0) return;
@@ -166,7 +147,7 @@ namespace Oxide.Plugins
             Message(player.IPlayer, "enabled");
         }
 
-        class SamTargeting : MonoBehaviour
+        private class SamTargeting : MonoBehaviour
         {
             private SamSite samsite;
 
@@ -195,7 +176,7 @@ namespace Oxide.Plugins
                             if (Instance.Vanish.Call<bool>("IsInvisible", bce as BasePlayer)) continue;
                             if (samsite.IsVisibleAndCanSee(bce.transform.position))
                             {
-                                samsite.currentTarget = bce;
+                                samsite.currentTarget = bce as SamSite.ISamSiteTarget;
                                 found = true;
                                 break;
                             }
@@ -206,17 +187,33 @@ namespace Oxide.Plugins
 
                     if (Instance.configData.TargetNPCs || (samsite.OwnerID == 0 && Instance.configData.NPCTargetNPCs))
                     {
-                        List<NPCPlayerApex> localnpc = new List<NPCPlayerApex>();
-                        Vis.Entities(samsite.transform.position, Instance.configData.range, localnpc);
+                        List<NPCPlayer> localnpc = new List<NPCPlayer>();
+                        List<global::HumanNPC> localhnpc = new List<global::HumanNPC>();
 
+                        Vis.Entities(samsite.transform.position, Instance.configData.range, localnpc);
                         foreach (BaseCombatEntity bce in localnpc)
                         {
                             if (string.IsNullOrEmpty(bce.ShortPrefabName)) continue;
                             if (samsite.IsVisibleAndCanSee(bce.transform.position))
                             {
-                                samsite.currentTarget = bce;
+                                samsite.currentTarget = bce as SamSite.ISamSiteTarget;
                                 found = true;
                                 break;
+                            }
+                        }
+
+                        if (!found)
+                        {
+                            Vis.Entities(samsite.transform.position, Instance.configData.range, localhnpc);
+                            foreach (BaseCombatEntity bce in localhnpc)
+                            {
+                                if (string.IsNullOrEmpty(bce.ShortPrefabName)) continue;
+                                if (samsite.IsVisibleAndCanSee(bce.transform.position))
+                                {
+                                    samsite.currentTarget = bce as SamSite.ISamSiteTarget;
+                                    found = true;
+                                    break;
+                                }
                             }
                         }
                     }
@@ -233,7 +230,7 @@ namespace Oxide.Plugins
                             if (string.IsNullOrEmpty(bce.ShortPrefabName)) continue;
                             if (samsite.IsVisibleAndCanSee(bce.transform.position) && !Instance.configData.exclusions.Contains(bce.ShortPrefabName))
                             {
-                                samsite.currentTarget = bce;
+                                samsite.currentTarget = bce as SamSite.ISamSiteTarget;
                                 break;
                             }
                         }
@@ -250,6 +247,7 @@ namespace Oxide.Plugins
             configData.Version = Version;
             SaveConfig(configData);
         }
+
         protected override void LoadDefaultConfig()
         {
             Puts("Creating new config file.");
@@ -267,6 +265,7 @@ namespace Oxide.Plugins
             };
             SaveConfig(config);
         }
+
         private void SaveConfig(ConfigData config)
         {
             Config.WriteObject(config, true);
@@ -275,22 +274,22 @@ namespace Oxide.Plugins
         private class ConfigData
         {
             [JsonProperty(PropertyName = "Player targeting by SamSite")]
-            public bool TargetPlayers = false;
+            public bool TargetPlayers;
 
             [JsonProperty(PropertyName = "NPC targeting by SamSite")]
-            public bool TargetNPCs = false;
+            public bool TargetNPCs;
 
             [JsonProperty(PropertyName = "Animal targeting by SamSite")]
-            public bool TargetAnimals = false;
+            public bool TargetAnimals;
 
             [JsonProperty(PropertyName = "Player targeting by NPC SamSite")]
-            public bool NPCTargetPlayers = false;
+            public bool NPCTargetPlayers;
 
             [JsonProperty(PropertyName = "NPC targeting by NPC SamSite")]
-            public bool NPCTargetNPCs = false;
+            public bool NPCTargetNPCs;
 
             [JsonProperty(PropertyName = "Animal targeting by NPC SamSite")]
-            public bool NPCTargetAnimals = false;
+            public bool NPCTargetAnimals;
 
             [JsonProperty(PropertyName = "Animals to exclude")]
             public List<string> exclusions;
